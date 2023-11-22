@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
-const { MongoClient, ServerApiVersion } = require('mongodb')
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb')
 
 //middleware
 app.use(cors());
@@ -73,8 +73,8 @@ async function run() {
 
   app.post('allproducts', async(req, res) =>{
     const product = req.body;
-    console.log(booking);
-    const result = await productCollection.insertOne(booking);
+    console.log(product);
+    const result = await productCollection.insertOne(product);
     res.send(result);
   })
 
@@ -104,11 +104,24 @@ async function run() {
     res.send(result);
   });
 
-  app.delete('/dashboard/:id',async(req,res)=>{
-    const id = req.params.id;
-    const result = await productCollection.deleteOne({_id:new ObjectId(id)});
-    res.send(result);
+  // app.delete('/allproducts/:email',async(req,res)=>{
+  //   const id = req.params.id;
+  //   const result = await productCollection.deleteOne({_id:new ObjectId(id)});
+  //   res.send(result);
+  // });
+  app.delete('/allproducts/:id', async (req, res) => {
+    try {
+      const id = req.params.id;
+      const result = await productCollection.deleteOne({ _id: new ObjectId(id) });
+      console.log('Delete Result:', result);
+      res.send(result);
+    } catch (error) {
+      console.error('Delete Error:', error);
+      res.status(500).send('Internal Server Error');
+    }
   });
+  
+  
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
