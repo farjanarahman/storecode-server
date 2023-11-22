@@ -20,26 +20,47 @@ const client = new MongoClient(uri, {
   }
 });
 
-// ... (previous code)
 
-// Define the generateRandomCode function on the server side
-const generateRandomCode = (name) => {
-  // Ensure the name is defined and at least 3 characters long
+// const generateRandomCode = (name) => {
+//   // Ensure the name is defined and at least 3 characters long
+//   if (name && name.length >= 3) {
+//     // Slice the first three letters of the name and convert to uppercase
+//     const truncatedName = name.slice(0, 3).toUpperCase();
+
+//     // Generate a random string of three numbers
+//     const randomNumberString = Math.floor(Math.random() * 900) + 100;
+
+//     return truncatedName + randomNumberString;
+//   } else {
+    
+//     return "N/A"; 
+//   }
+// };
+
+const lastRandomNumbers = {};
+
+// Generate a constant product code
+const generateConstantCode = (name) => {
   if (name && name.length >= 3) {
-    // Slice the first three letters of the name and convert to uppercase
     const truncatedName = name.slice(0, 3).toUpperCase();
 
-    // Generate a random string of three numbers
-    const randomNumberString = Math.floor(Math.random() * 900) + 100;
+    // Check if a random number has been generated for this product
+    let randomNumberString = lastRandomNumbers[name];
+
+    if (!randomNumberString) {
+      // If not, generate a random string of three numbers
+      randomNumberString = Math.floor(Math.random() * 900) + 100;
+
+      // Store the random number for this product in memory
+      lastRandomNumbers[name] = randomNumberString;
+    }
 
     return truncatedName + randomNumberString;
   } else {
-    // Handle the case where name is undefined or too short
-    return "N/A"; // Or any default value you want
+    return "N/A";
   }
 };
 
-// ... (remaining code)
 
 
 async function run() {
@@ -49,43 +70,41 @@ async function run() {
     
     const productCollection = client.db('productDB').collection('products');
 
-    const indexKey = {name: 1, sellerName: 1};
-    const indexOptions = {multipleFinding: "webfinding"};
-
-  //search
-  // app.get('/search/:text',async(req,res)=>{
-  //   const searchText=req.params.text;
-  //   const result=await productCollection.find({$or:[{productname:{$regex:searchText,$options:"i"}}]}).toArray();
-  //   res.send(result);
-  // })
-
+    //search
   app.get('/search', async (req, res) => {
-    const searchText = req.query.text;
-    const result = await productCollection.find({ $or: [{ productname: { $regex: searchText, $options: 'i' } }] }).toArray();
-    res.send(result);
+    try {
+      const searchText = req.query.text;
+      // Assuming you have a field named 'productLink' in your documents, replace it with the actual field name
+      const result = await productCollection.find({ $or: [{ productCode: { $regex: searchText, $options: 'i' } }] }).toArray();
+  
+      if (result.length > 0) {
+        // Send the product link in the response
+        res.json({ productLink: result[0].productLink });
+      } else {
+        // If the product code is not found, you can send an appropriate response
+        res.json({ error: 'Product code not found' });
+      }
+    } catch (error) {
+      console.error('Search Error:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
   });
   
 
-//add product
-  //   app.post('/addproduct',async(req,res)=>{
-  //     const product=req.body;
-  //     const result=await productCollection.insertOne(product);
-  //     res.send(result);
-  //     console.log(product);
-  // })
+
   app.post('/addproduct', async (req, res) => {
     const product = req.body;
   
     // Generate product code
-    const productCode = generateRandomCode(product.name);
-    
+    const productCode = generateConstantCode(product.name);
+  
     // Add the product code to the product object
     product.productCode = productCode;
   
     try {
       // Insert the product into the collection
       const result = await productCollection.insertOne(product);
-      
+  
       // Check if the product was inserted successfully
       if (result.insertedCount > 0) {
         res.send({ success: true, productCode: productCode });
@@ -97,13 +116,7 @@ async function run() {
       res.status(500).send({ success: false, error: 'Internal Server Error' });
     }
   });
-
-  app.get('/addproduct', async(req, res) =>{
-    const cursor = productCollection.find();
-    const result = await cursor.toArray();
-    res.send(result);
-  })
-
+  
   //all
 
   app.get('/allproducts', async (req,res)=>{
@@ -117,7 +130,7 @@ async function run() {
   })
 
 
-  app.post('allproducts', async(req, res) =>{
+  app.post('/allproducts', async(req, res) =>{
     const product = req.body;
     console.log(product);
     const result = await productCollection.insertOne(product);
@@ -132,29 +145,6 @@ async function run() {
     console.log(result);
   });
 
-  //new
-  app.get('/dashboard', async (req, res) => {
-    console.log(req.query?.email);
-    let query = {}; // Initialize the query object
-    if (req.query?.name) {
-      query = { sellerEmail: req.query.email };
-    }
-    const result = await productCollection.find(query).toArray();
-    res.send(result);
-  });
-
-  app.get('/dashboard/:email',async(req,res)=>{
-    console.log(req.params.email);
-    const result=await productCollection.find({sellerEmail:req.params.email}).sort({price:-1}).toArray();
-    console.log(result); // Log the result
-    res.send(result);
-  });
-
-  // app.delete('/allproducts/:email',async(req,res)=>{
-  //   const id = req.params.id;
-  //   const result = await productCollection.deleteOne({_id:new ObjectId(id)});
-  //   res.send(result);
-  // });
   app.delete('/allproducts/:id', async (req, res) => {
     try {
       const id = req.params.id;
