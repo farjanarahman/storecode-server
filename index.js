@@ -20,6 +20,28 @@ const client = new MongoClient(uri, {
   }
 });
 
+// ... (previous code)
+
+// Define the generateRandomCode function on the server side
+const generateRandomCode = (name) => {
+  // Ensure the name is defined and at least 3 characters long
+  if (name && name.length >= 3) {
+    // Slice the first three letters of the name and convert to uppercase
+    const truncatedName = name.slice(0, 3).toUpperCase();
+
+    // Generate a random string of three numbers
+    const randomNumberString = Math.floor(Math.random() * 900) + 100;
+
+    return truncatedName + randomNumberString;
+  } else {
+    // Handle the case where name is undefined or too short
+    return "N/A"; // Or any default value you want
+  }
+};
+
+// ... (remaining code)
+
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -45,12 +67,36 @@ async function run() {
   
 
 //add product
-    app.post('/addproduct',async(req,res)=>{
-      const product=req.body;
-      const result=await productCollection.insertOne(product);
-      res.send(result);
-      console.log(product);
-  })
+  //   app.post('/addproduct',async(req,res)=>{
+  //     const product=req.body;
+  //     const result=await productCollection.insertOne(product);
+  //     res.send(result);
+  //     console.log(product);
+  // })
+  app.post('/addproduct', async (req, res) => {
+    const product = req.body;
+  
+    // Generate product code
+    const productCode = generateRandomCode(product.name);
+    
+    // Add the product code to the product object
+    product.productCode = productCode;
+  
+    try {
+      // Insert the product into the collection
+      const result = await productCollection.insertOne(product);
+      
+      // Check if the product was inserted successfully
+      if (result.insertedCount > 0) {
+        res.send({ success: true, productCode: productCode });
+      } else {
+        res.status(500).send({ success: false, error: 'Failed to insert product' });
+      }
+    } catch (error) {
+      console.error('Add Product Error:', error);
+      res.status(500).send({ success: false, error: 'Internal Server Error' });
+    }
+  });
 
   app.get('/addproduct', async(req, res) =>{
     const cursor = productCollection.find();
